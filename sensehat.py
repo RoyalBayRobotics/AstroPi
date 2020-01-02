@@ -1,25 +1,27 @@
 #!/usr/bin/env python
 
-import math
+from collections import OrderedDict
 from sense_hat import SenseHat
-from time import sleep
 
-def length(v):
-    return math.sqrt(v['x']**2 + v['y']**2 + v['z']**2)
+class Sensors:
+    def __init__(self, path):
+        self.sense = SenseHat()
+        self.sense.clear()
+        self.sense.set_imu_config(True, True, True)
 
-sense = SenseHat()
-sense.clear()
-sense.set_imu_config(True, True, True)
+    def get_data(self):
+        data = OrderedDict({
+            "humidity": self.sense.get_humidity(),
+            "temp": self.sense.get_temperature(),
+            "pressure": self.sense.get_pressure(),
+        })
 
-while True:
-    humidity = sense.get_humidity()
-    temp = sense.get_temperature()
-    pressure = sense.get_pressure()
+        mag = self.sense.get_compass_raw()
+        gyro = self.sense.get_gyroscope_raw()
+        accel = self.sense.get_accelerometer_raw()
 
-    mag = length(sense.get_compass_raw())
-    gyro = length(sense.get_gyroscope_raw())
-    accel = length(sense.get_accelerometer_raw())
+        data['mag_x'] = mag['x']; data['mag_y'] = mag['y']; data['mag_z'] = mag['z']
+        data['gyro_x'] = gyro['x']; data['gyro_y'] = gyro['y']; data['gyro_z'] = gyro['z']
+        data['accel_x'] = accel['x']; data['accel_y'] = accel['y']; data['accel_z'] = accel['z']
 
-    print("humidity: {humidity}\ntemp: {temp}\npressure: {pressure}\nmag: {mag}\ngyro {gyro}\naccel {accel}\n"
-            .format(humidity=humidity, temp=temp, pressure=pressure, mag=mag, gyro=gyro, accel=accel))
-    sleep(1)
+        return data
