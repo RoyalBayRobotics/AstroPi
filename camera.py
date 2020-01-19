@@ -23,7 +23,7 @@ class Camera:
         self.cam_iter = self.camera.capture_continuous(self.output, 'rgb')
 
     def update(self):
-        self.cam_iter.next()
+        next(self.cam_iter)
 
         colors = np.average(self.output.array, axis=(0,1))
         gain = self.camera.analog_gain * self.camera.digital_gain * self.camera.exposure_speed / (1000000 / self.camera.framerate)
@@ -31,7 +31,7 @@ class Camera:
 
         now = time.time()
         if now - self.last_save_time > self.min_interval:
-            logger.info("Saving image")
+            #logger.info("Saving image")
             self.last = colors
             self.last_save_time = now
             img = Image.fromarray(self.output.array)
