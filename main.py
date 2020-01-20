@@ -14,55 +14,63 @@ from logzero import logger
 from camera import Camera
 from sensehat import Sensors
 
-MAX_RUN_TIME = 10
+MAX_RUN_TIME = 10 # seconds
 
 start_time = time.time()
 
 # used when the first run got interrupted
-last_start_time = last_end_time = start_time
+last_run_time = 0
 
 path = os.path.dirname(os.path.realpath(__file__))
 logfile = path + "/data01.csv"
 
 def main():
-    global last_start_time
-    global last_end_time
+    global last_run_time
+
+    logger.info("Initializing")
 
     # logger for logging sensor datas
     file_logger = logzero.setup_logger(logfile=logfile, disableStderrLogger=True,
             formatter=logging.Formatter('%(asctime)s,%(message)s', datefmt='%s'))
 
     is_empty_file = os.stat(logfile).st_size == 0
-    if not is_empty_file: # read the previous runtime
+
+    if is_empty_file: # record initial start time
+        file_logger.info("")
+
+    else: # read the previous runtime
         with open(logfile, 'rb') as file:
+            # start time
             start = file.readline().decode().split(',')[0]
 
             # seek backwards until EOL
-            file.seek(-2, 2)
-            while file.read(1) != b"\n":
-                file.seek(-2, 1)
-
-            end = file.readline().decode().split(',')[0]
-
             if start.isdigit():
-                last_start_time = int(start)
-            if end.isdigit():
-                last_end_time = int(end)
+                try:
+                    file.seek(-2, 2)
+                    while file.read(1) != b"\n":
+                        file.seek(-2, 1)
 
-    # record initial start time
-    if is_empty_file:
-        file_logger.info("")
+                    end = file.readline().decode().split(',')[0]
+
+                    if end.isdigit():
+                        # save the run time of last execution if there was one
+                        last_run_time = int(end) - int(start)
+
+                except OSError:
+                    pass
 
     # init camera and sensors
     camera = Camera(path=path, min_interval=60)
     sensors = Sensors(path=path)
+
+    logger.info("Running")
 
     last_time = 0
     while True:
         now = time.time()
 
         # check runtime
-        if now - start_time + last_end_time - last_start_time > MAX_RUN_TIME: break # TODO account for loop execution time
+        if now - start_time + last_run_time > MAX_RUN_TIME: break # TODO account for loop execution time
 
         # limit execution rate to 1/sec
         if now - last_time < 1: continue
