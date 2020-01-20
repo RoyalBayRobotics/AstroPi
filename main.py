@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 # TODO list
-# camera location data
 # file error check
 # memory error check
 
@@ -78,8 +77,8 @@ def main():
         last_time = now
 
         data = sensors.get_data()
-        data['brightness'] = camera.update()
-        data['time'] = time.time()
+        data.update(camera.update())
+        data.update({'time': time.time()})
 
         if is_empty_file:
             file_logger.info(','.join(data.keys()))
