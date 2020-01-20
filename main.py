@@ -9,30 +9,26 @@ name = 'SS (ZARYA)'
 line1 = '1 25544U 98067A   19362.71902896  .00001053  00000-0  26848-4 0  9994'
 line2 = '2 25544  51.6443 116.9397 0005193  79.2376  62.1357 15.49524693205439'
 
-# util import
+# imports
 import os
 import time
 from collections import OrderedDict
-
-# math import
 import numpy as np
 import ephem
 
-# log import
 import logging
 import logzero
 from logzero import logger
 
-# sensor import
 from sense_hat import SenseHat
-
-# camera import
 from picamera import PiCamera
 from picamera.array import PiRGBArray
+
 from PIL import Image
 import piexif
 from piexif import GPSIFD
 
+# time keeping variables
 MAX_RUN_TIME = 10 # seconds
 start_time = time.time()
 last_run_time = 0 # used when the first run got interrupted
@@ -42,6 +38,7 @@ path = os.path.dirname(os.path.realpath(__file__))
 log_file = path + '/data01.csv'
 img_file = path + '/image{}.jpg'
 
+# class for initializing and getting sensor data
 class Sensors:
     def __init__(self):
         self.sense = SenseHat()
@@ -65,6 +62,7 @@ class Sensors:
 
         return data
 
+# class for initiailzing camera, saving pictures, and getting brightness + location
 class Camera:
     def __init__(self, min_interval=60):
         self.min_interval = min_interval
@@ -75,13 +73,9 @@ class Camera:
         # camera settings
         self.camera = PiCamera()
         self.output = PiRGBArray(self.camera)
-        self.last = np.array([0, 0, 0])
         self.cam_iter = self.camera.capture_continuous(self.output, 'rgb')
 
         # set up location
-        name = 'SS (ZARYA)'
-        line1 = '1 25544U 98067A   19362.71902896  .00001053  00000-0  26848-4 0  9994'
-        line2 = '2 25544  51.6443 116.9397 0005193  79.2376  62.1357 15.49524693205439'
         self.location = ephem.readtle(name, line1, line2)
 
     def update(self):
@@ -97,7 +91,6 @@ class Camera:
         now = time.time()
         if now - self.last_save_time > self.min_interval:
             #logger.info("Saving image")
-            self.last = colors
             self.last_save_time = now
             img = Image.fromarray(self.output.array)
             img.save(img_file.format(self.img_count), exif=self._location_tags())
@@ -161,9 +154,9 @@ def main():
             # seek backwards until EOL
             if start.isdigit():
                 try:
-                    file.seek(-2, 2)
+                    file.seek(-2, os.SEEK_END)
                     while file.read(1) != b"\n":
-                        file.seek(-2, 1)
+                        file.seek(-2, os.SEEK_CUR)
 
                     end = file.readline().decode().split(',')[0]
 
@@ -188,18 +181,22 @@ def main():
         if now - start_time + last_run_time > MAX_RUN_TIME: break # TODO account for loop execution time
 
         # limit execution rate to 1/sec
-        if now - last_time < 1: continue
-
+        if now - last_time < 1:
+            time.sleep(1 - (now-last_time))
+            continue
         last_time = now
 
+        # get datas
         data = sensors.get_data()
         data.update(camera.update())
         data.update({'time': time.time()})
 
+        # write CSV keys to file when it's empty
         if is_empty_file:
             file_logger.info(','.join(data.keys()))
             is_empty_file = False
 
+        # write datas to file
         file_logger.info(','.join(str(v) for v in data.values()))
 
     logger.info("Ending program")
