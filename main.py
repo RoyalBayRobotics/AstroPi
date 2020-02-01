@@ -62,7 +62,7 @@ class Camera:
     def __init__(self, min_interval=60):
         self.min_interval = min_interval
 
-        self.img_count = 0
+        self.img_count = -1
         self.last_save_time = 0
 
         # camera settings
@@ -75,18 +75,24 @@ class Camera:
         # get current location
         self.location.compute()
 
+        picture_taken = False
         now = time.time()
+
+        # Take picture every `min_interval` time
         if now - self.last_save_time > self.min_interval:
             #logger.info("Saving image")
             self.last_save_time = now
+            self.img_count += 1
             self._update_location()
             self.camera.capture(img_file.format(self.img_count))
+            picture_taken = True
 
         return {
             'gain': self.camera.analog_gain * self.camera.digital_gain,
             'exposure': self.camera.exposure_speed,
             'lat': str(self.location.sublat),
             'long': str(self.location.sublong),
+            'picture_number': -1 if not picture_taken else self.img_count,
         }
 
     def _update_location(self):
