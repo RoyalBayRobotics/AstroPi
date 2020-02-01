@@ -6,8 +6,8 @@ SIZE = 1024*1024*300 # Will allocate 300 MB of ram
 class MemoryTest:
     def __init__(self):
         # Using both zeros and ones to see if different bits gives different results
-        self.array = np.zeros(SIZE, dtype=np.uint8)
-        self.array[SIZE//2:] = 0xFF
+        self.array = np.full(SIZE, 0xFF, dtype=np.uint8)
+        self.array[:SIZE//2] = 0x00
         self._update_hash()
 
     def _update_hash(self):

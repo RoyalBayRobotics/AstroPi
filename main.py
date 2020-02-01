@@ -178,7 +178,6 @@ def main():
         data = sensors.get_data()
         data.update(camera.update())
         data.update(memTest.test())
-        data.update({'time': time.time()})
 
         # write CSV keys to file when it's empty
         if is_empty_file:
