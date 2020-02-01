@@ -23,6 +23,8 @@ from logzero import logger
 from sense_hat import SenseHat
 from picamera import PiCamera
 
+from memorytest import MemoryTest
+
 # time keeping variables
 MAX_RUN_TIME = 10 # seconds
 start_time = time.time()
@@ -155,6 +157,7 @@ def main():
     # init camera and sensors
     camera = Camera(min_interval=60)
     sensors = Sensors()
+    memTest = MemoryTest()
 
     logger.info("Running")
 
@@ -174,6 +177,7 @@ def main():
         # get datas
         data = sensors.get_data()
         data.update(camera.update())
+        data.update(memTest.test())
         data.update({'time': time.time()})
 
         # write CSV keys to file when it's empty
@@ -183,6 +187,8 @@ def main():
 
         # write datas to file
         file_logger.info(','.join(str(v) for v in data.values()))
+
+        logger.info("Time taken in loop: %fs", time.time() - now)
 
     logger.info("Ending program")
 
