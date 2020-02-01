@@ -24,15 +24,17 @@ from sense_hat import SenseHat
 from picamera import PiCamera
 
 from memorytest import MemoryTest
+from filetest import FileTest
 
 # time keeping variables
-MAX_RUN_TIME = 10 # seconds
+MAX_RUN_TIME = 10 # seconds TODO remember to change it to 3 hours
 start_time = time.time()
 last_run_time = 0 # used when the first run got interrupted
 
 # file paths
 path = os.path.dirname(os.path.realpath(__file__))
-log_file = path + '/data01.csv'
+data_file = path + '/data01.csv'
+log_file = path + '/data02.log'
 img_file = path + '/image{}.jpg'
 
 # class for initializing and getting sensor data
@@ -125,16 +127,20 @@ def main():
     logger.info("Initializing")
 
     # logger for logging sensor datas
-    file_logger = logzero.setup_logger(logfile=log_file, disableStderrLogger=True,
+    file_logger = logzero.setup_logger(logfile=data_file, disableStderrLogger=True,
             formatter=logging.Formatter('%(asctime)s,%(message)s', datefmt='%s'))
 
-    is_empty_file = os.stat(log_file).st_size == 0
+    # also save program output
+    logzero.logfile(log_file)
 
-    if is_empty_file: # record initial start time
+    is_empty_file = os.stat(data_file).st_size == 0
+
+    # figure out how much runtime there is left
+    if is_empty_file: # first start, record initial start time
         file_logger.info("")
 
-    else: # read the previous runtime
-        with open(log_file, 'rb') as file:
+    else: # not first start, read the previous runtime
+        with open(data_file, 'rb') as file:
             # start time
             start = file.readline().decode().split(',')[0]
 
@@ -155,39 +161,42 @@ def main():
                     pass
 
     # init camera and sensors
-    camera = Camera(min_interval=60)
+    camera = Camera(min_interval=1) # TODO remember to change it to 1 minute
     sensors = Sensors()
     memTest = MemoryTest()
+    fileTest_ = FileTest(path)
 
     logger.info("Running")
 
-    last_time = 0
-    while True:
-        now = time.time()
+    with fileTest_ as fileTest:
+        last_time = 0
+        while True:
+            now = time.time()
 
-        # check runtime
-        if now - start_time + last_run_time > MAX_RUN_TIME: break # TODO account for loop execution time
+            # check runtime
+            if now - start_time + last_run_time > MAX_RUN_TIME: break # TODO account for loop execution time
 
-        # limit execution rate to 1/sec
-        if now - last_time < 1:
-            time.sleep(1 - (now-last_time))
-            continue
-        last_time = now
+            # limit execution rate to 1/sec
+            if now - last_time < 1:
+                time.sleep(1 - (now-last_time))
+                continue
+            last_time = now
 
-        # get datas
-        data = sensors.get_data()
-        data.update(camera.update())
-        data.update(memTest.test())
+            # get datas
+            data = sensors.get_data()
+            data.update(camera.update())
+            data.update(memTest.test())
+            data.update(fileTest.test())
 
-        # write CSV keys to file when it's empty
-        if is_empty_file:
-            file_logger.info(','.join(data.keys()))
-            is_empty_file = False
+            # write CSV keys to file when it's empty
+            if is_empty_file:
+                file_logger.info(','.join(data.keys()))
+                is_empty_file = False
 
-        # write datas to file
-        file_logger.info(','.join(str(v) for v in data.values()))
+            # write datas to file
+            file_logger.info(','.join(str(v) for v in data.values()))
 
-        logger.info("Time taken in loop: %fs", time.time() - now)
+            logger.info("Time taken in loop: %fs", time.time() - now)
 
     logger.info("Ending program")
 

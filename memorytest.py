@@ -1,10 +1,12 @@
 import numpy as np
 import hashlib
+from logzero import logger
 
 SIZE = 1024*1024*300 # Will allocate 300 MB of ram
 
 class MemoryTest:
     def __init__(self):
+        logger.info("Allocating %d bytes of memory", SIZE)
         # Using both zeros and ones to see if different bits gives different results
         self.array = np.full(SIZE, 0xFF, dtype=np.uint8)
         self.array[:SIZE//2] = 0x00
