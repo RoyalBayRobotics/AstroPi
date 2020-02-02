@@ -3,7 +3,7 @@ import ctypes.util
 
 import os
 import shutil
-import hashlib
+from zlib import adler32
 
 from logzero import logger
 
@@ -63,13 +63,12 @@ class FileTest:
             pass
 
     def update_hash(self):
-        md5 = hashlib.md5()
-        self.fd.seek(0)
+        self.hash = 0xFFFFFF
+        self.file.seek(0)
         while True:
-            buf = self.fd.read(BLOCK_SIZE)
+            data = self.file.read(BLOCK_SIZE)
             if not data: break
-            md5.update(data)
-        self.hash = md5.hexdigest()
+            self.hash = adler32(data, self.hash)
 
     def test(self):
         if not self.file: return {'file_changed': False, 'file_size': 0}
