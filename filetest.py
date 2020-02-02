@@ -68,11 +68,11 @@ class FileTest:
         self.hash = md5.hexdigest()
 
     def test(self):
-        if not self.fd: return { 'file_size': 0,'file_changed': False}
+        if not self.fd: return {'file_changed': False, 'file_size': 0}
 
         hash = self.hash
         update_hash()
         return {
-            'file_size': self.size,
             'file_changed': hash != update_hash,
+            'file_size': self.size,
         }

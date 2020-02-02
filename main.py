@@ -12,7 +12,6 @@ line2 = '2 25544  51.6443 116.9397 0005193  79.2376  62.1357 15.49524693205439'
 # imports
 import os
 import time
-from collections import OrderedDict
 import numpy as np
 import ephem
 
@@ -45,11 +44,11 @@ class Sensors:
         self.sense.set_imu_config(True, True, True)
 
     def get_data(self):
-        data = OrderedDict({
+        data = {
             "humidity": self.sense.get_humidity(),
             "temp": self.sense.get_temperature(),
             "pressure": self.sense.get_pressure(),
-        })
+        }
 
         mag = self.sense.get_compass_raw()
         gyro = self.sense.get_gyroscope_raw()
