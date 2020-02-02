@@ -6,13 +6,16 @@ import mmap
 import shutil
 from zlib import adler32
 
+import numpy as np
 from logzero import logger
 
 # constants
-MAX_SIZE = 2147483647 # will allocate 2 GB at max on file system. it is also the max int32
+MAX_SIZE=0
+#MAX_SIZE = 2147483647 # will allocate 2 GB at max on file system. it is also the max int32
 RESERVE_SIZE = 1024*1024*100 # reserve at least 100 MB after allocation
+MEM_SIZE = 1024*1024*500 # Will allocate 500 MB of ram
 FILE_NAME = "experiment_use_only_do_not_upload"
-READ_SIZE = 1024*1024
+READ_SIZE = 1024*4
 
 # prepare fallocate function
 libc = c.CDLL(ctypes.util.find_library('c'), use_errno=True)
@@ -44,7 +47,7 @@ class FileTest:
                 self.fd = os.open(self.path, os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_DIRECT)
                 fallocate(self.fd, 0, 0, self.size)
                 logger.info("File allocated")
-                #self.update_hash()
+                self.update_hash()
             except (IOError, OSError) as e:
                 logger.error(str(e))
         return self
@@ -68,7 +71,7 @@ class FileTest:
             pos += len(data)
 
     def test(self):
-        if not self.file: return {'file_changed': False, 'file_size': 0}
+        if self.fd == -1: return {'file_changed': False, 'file_size': 0}
 
         hash = self.hash
         update_hash()
@@ -80,3 +83,24 @@ class FileTest:
     def _direct_read(self, pos, size):
         with mmap.mmap(self.fd, size, offset=pos, access=mmap.ACCESS_READ) as data:
             return data.read(size)
+
+class MemoryTest:
+    def __init__(self):
+        logger.info("Allocating %d bytes of memory", MEM_SIZE)
+        # Using both zeros and ones to see if different bits gives different results
+        self.array = np.full(MEM_SIZE, 0xFF, dtype=np.uint8)
+        self.array[:MEM_SIZE//2] = 0x00
+        logger.info("Memory allocated")
+        self._update_hash()
+
+    def _update_hash(self):
+        self.hash_zero = adler32(self.array.data[:MEM_SIZE//2])
+        self.hash_one = adler32(self.array.data[MEM_SIZE//2:])
+
+    def test(self):
+        hash_zero, hash_one = self.hash_zero, self.hash_one
+        self._update_hash()
+        return {
+            'memory_zero_changed': hash_zero != self.hash_zero,
+            'memory_one_changed': hash_one != self.hash_one,
+        }
