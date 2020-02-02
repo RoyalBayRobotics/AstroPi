@@ -14,9 +14,9 @@ FILE_NAME = "experiment_use_only_do_not_upload"
 BLOCK_SIZE = 1024*1024
 
 # prepare fallocate function
-libc = c.CDLL(ctypes.util.find_library('c'))
+libc = c.CDLL(ctypes.util.find_library('c'), use_errno=True)
 libc.fallocate.restype = ctypes.c_int
-libc.fallocate.argtypes = [c.c_int, c.c_int, c.c_int64, c.c_int64]
+libc.fallocate.argtypes = [c.c_int, c.c_int, c.c_int32, c.c_int32]
 
 def fallocate(fd, mode, offset, length):
     # https://gist.github.com/NicolasT/1194957
@@ -43,7 +43,7 @@ class FileTest:
             try:
                 with open(self.path, 'a') as fd:
                     fallocate(fd, 0, 0, self.size)
-                self.fd = open(self.path, 'rb')
+                self.fd = open(self.path, 'rb', 0, flags=os.O_DIRECT)
                 self.update_hash()
             except:
                 logger.error("Failed to allocate")

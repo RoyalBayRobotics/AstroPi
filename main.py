@@ -165,9 +165,9 @@ def main():
     memTest = MemoryTest()
     fileTest_ = FileTest(path)
 
-    logger.info("Running")
-
     with fileTest_ as fileTest:
+        logger.info("Running")
+
         last_time = 0
         while True:
             now = time.time()

@@ -10,6 +10,7 @@ class MemoryTest:
         # Using both zeros and ones to see if different bits gives different results
         self.array = np.full(SIZE, 0xFF, dtype=np.uint8)
         self.array[:SIZE//2] = 0x00
+        logger.info("Memory allocated")
         self._update_hash()
 
     def _update_hash(self):
