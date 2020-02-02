@@ -95,6 +95,7 @@ class Camera:
             'exposure': self.camera.exposure_speed,
             'lat': str(self.location.sublat),
             'long': str(self.location.sublong),
+            'alt': self.location.elevation,
             'picture_number': -1 if not picture_taken else self.img_count,
         }
 
@@ -107,7 +108,10 @@ class Camera:
         lat = [int(lat[0]), int(lat[1]), int(float(lat[2]) * 10)]
         lon = [int(lon[0]), int(lon[1]), int(float(lon[2]) * 10)]
 
-        # get reference direction
+        # elevation
+        alt = int(self.location.elevation * 10)
+
+        # set reference direction
         lat_ref = 'S' if lat[0] < 0 else 'N'
         lon_ref = 'W' if lon[0] < 0 else 'E'
 
@@ -117,8 +121,10 @@ class Camera:
         # create exif data
         self.camera.exif_tags['GPS.GPSLatitudeRef'] = lat_ref
         self.camera.exif_tags['GPS.GPSLongitudeRef'] = lon_ref
-        self.camera.exif_tags['GPS.GPSLatitude'] = '%d/1,%d/1,%d/10'.format(*lat)
-        self.camera.exif_tags['GPS.GPSLongitude'] = '%d/1,%d/1,%d/10'.format(*lon)
+        self.camera.exif_tags['GPS.GPSAltitudeRef'] = '0'
+        self.camera.exif_tags['GPS.GPSLatitude'] = '{}/1,{}/1,{}/10'.format(*lat)
+        self.camera.exif_tags['GPS.GPSLongitude'] = '{}/1,{}/1,{}/10'.format(*lon)
+        self.camera.exif_tags['GPS.GPSAltitude'] = '{}/10'.format(alt)
 
 def main():
     global last_run_time
