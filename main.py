@@ -124,14 +124,14 @@ class Camera:
 def main():
     global last_run_time
 
+    # save program output
+    logzero.logfile(log_file)
+
     logger.info("Initializing")
 
     # logger for logging sensor datas
     file_logger = logzero.setup_logger(logfile=data_file, disableStderrLogger=True,
             formatter=logging.Formatter('%(asctime)s,%(message)s', datefmt='%s'))
-
-    # also save program output
-    logzero.logfile(log_file)
 
     is_empty_file = os.stat(data_file).st_size == 0
 
