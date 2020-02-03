@@ -1,3 +1,4 @@
+import os
 import time
 
 import ephem
@@ -42,11 +43,15 @@ class Camera:
         self.min_interval = min_interval
         self.img_file = img_file
 
-        self.img_count = -1
         self.last_save_time = 0
 
+        # find out how many pictures has taken
+        self.img_count = 0
+        while os.path.exists(self.img_file.format(self.img_count)):
+            self.img_count += 1
+
         # camera settings
-        self.camera = PiCamera()
+        self.camera = PiCamera(resolution=(2592, 1944))
 
         # set up location
         self.location = ephem.readtle(name, line1, line2)
@@ -62,10 +67,10 @@ class Camera:
         if now - self.last_save_time > self.min_interval:
             #logger.info("Saving image")
             self.last_save_time = now
-            self.img_count += 1
             self._update_location()
             self.camera.capture(self.img_file.format(self.img_count))
             picture_taken = True
+            self.img_count += 1
 
         return {
             'gain': self.camera.analog_gain * self.camera.digital_gain,
@@ -73,7 +78,7 @@ class Camera:
             'lat': str(self.location.sublat),
             'long': str(self.location.sublong),
             'alt': self.location.elevation,
-            'picture_number': -1 if not picture_taken else self.img_count,
+            'picture_number': -1 if not picture_taken else self.img_count-1,
         }
 
     def _update_location(self):
