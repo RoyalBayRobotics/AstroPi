@@ -65,7 +65,7 @@ class Camera:
 
         # Take picture every `min_interval` time
         if now - self.last_save_time > self.min_interval:
-            #logger.info("Saving image")
+            logger.debug("Saving image")
             self.last_save_time = now
             self._update_location()
             self.camera.capture(self.img_file.format(self.img_count))
