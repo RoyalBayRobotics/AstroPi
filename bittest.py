@@ -49,7 +49,7 @@ class FileTest:
                 fallocate(self.fd, 0, 0, self.size)
                 logger.info("File allocated")
             except (IOError, OSError) as e:
-                logger.error(str(e))
+                logger.error("Failed to allocate file: %s", str(e))
         return self
 
     def __exit__(self, *args):
@@ -74,7 +74,7 @@ class FileTest:
             yield pos / self.size
 
     def test(self):
-        if self.fd == -1: yield {'file_changed': False, 'file_size': 0}
+        if self.fd == -1: return
 
         hash = self.hash
         for prog in self.update_hash():
@@ -95,12 +95,17 @@ class MemoryTest:
         self.batch_size = batch_size
 
         logger.info("Allocating %d bytes of memory", MEM_SIZE)
-        # Using both zeros and ones to see if different bits gives different results
-        self.array = np.full(MEM_SIZE, 0xFF, dtype=np.uint8)
-        self.array[:MEM_SIZE//2] = 0x00
-        logger.info("Memory allocated")
+        try:
+            # Using both zeros and ones to see if different bits gives different results
+            self.array = np.full(MEM_SIZE, 0xFF, dtype=np.uint8)
+            self.array[:MEM_SIZE//2] = 0x00
+            logger.info("Memory allocated")
+        except (MemoryError, ValueError) as e:
+            logger.error("Failed to allocate memory: %s", str(e))
+            self.array = None
 
     def update_hash(self):
+        if self.array is None: return
         self.hash_zero = self.hash_one = 1
         for i in range(0, self.array.size, self.batch_size):
             self.hash_zero = adler32(self.array.data[i:i+self.batch_size], self.hash_zero)
@@ -108,6 +113,7 @@ class MemoryTest:
             yield (i+self.batch_size) / self.array.size
 
     def test(self):
+        if self.array is None: return
         hash_zero, hash_one = self.hash_zero, self.hash_one
 
         for prog in self.update_hash():

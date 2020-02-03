@@ -76,14 +76,18 @@ def gen_task_memory_test():
     yield
 
     while True:
+        rst = None
         for rst in memtest.test():
             if type(rst) is dict: break
             logger.debug("Memory test progress: %d%%", rst * 100)
             yield
 
-        data = {'time': time.time()}
-        data.update(rst)
-        log_data(data, 1)
+        if rst != None:
+            data = {'time': time.time()}
+            data.update(rst)
+            log_data(data, 1)
+
+        yield
 
 def gen_task_file_test():
     with FileTest(path) as filetest:
@@ -94,14 +98,18 @@ def gen_task_file_test():
             yield
 
         while True:
+            rst = None
             for rst in filetest.test():
                 if type(rst) is dict: break
                 logger.debug("File test progress: %d%%", rst * 100)
                 yield
 
-            data = {'time': time.time()}
-            data.update(rst)
-            log_data(data, 2)
+            if rst != None:
+                data = {'time': time.time()}
+                data.update(rst)
+                log_data(data, 2)
+
+            yield
 
 def main():
     global last_run_time, data_writers, data_empty
