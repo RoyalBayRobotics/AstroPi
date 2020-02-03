@@ -45,7 +45,7 @@ class FileTest:
         if self.size > 0:
             logger.info("Allocating %d bytes on filesystem", self.size)
             try:
-                self.fd = os.open(self.path, os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_DIRECT)
+                self.fd = os.open(self.path, os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_DIRECT, 0o644)
                 fallocate(self.fd, 0, 0, self.size)
                 logger.info("File allocated")
             except (IOError, OSError) as e:

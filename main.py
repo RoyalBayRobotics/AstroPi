@@ -3,6 +3,8 @@
 # imports
 import os
 import time
+import contextlib
+import csv
 
 import logging
 import logzero
@@ -11,32 +13,36 @@ from logzero import logger
 from sensors import Sensors, Camera
 from bittest import MemoryTest, FileTest
 
-# global variables
-num_datas = 3
-data_empty = [True] * num_datas
-data_loggers = [None] * num_datas
-
 # time keeping variables
-MAX_RUN_TIME = 60 # seconds TODO remember to change it to 3 hours
+MAX_RUN_TIME = 60 * 60 * 3 # seconds TODO remember to change it to 3 hours
 start_time = time.time()
 last_run_time = 0 # used when the first run got interrupted
 
 # file paths
 path = os.path.dirname(os.path.realpath(__file__))
 img_file = path + '/image{}.jpg' # gets formatted when saving
-data_files = [path + '/data{:02d}.csv'.format(n+1) for n in range(num_datas)]
-log_file = path + '/data{:02d}.log'.format(num_datas+1)
+data_paths = [path + '/' + name for name in ('data01.csv', 'data02.csv', 'data03.csv')]
+log_path = path + '/data{:02d}.log'.format(len(data_paths)+1)
+elapsed_path = path + '/elasped_time'
+
+# global variables
+data_empty = [True] * len(data_paths)
+data_writers = [None] * len(data_paths)
+data_files = [None] * len(data_paths)
 
 def log_data(data, n):
-    global data_empty
+    global data_empty, data_writers
 
     # write CSV keys to file if it's empty
-    if data_empty[n]:
-        data_loggers[n].info(','.join(data.keys()))
-        data_empty[n] = False
+    if not data_writers[n]:
+        data_writers[n] = csv.DictWriter(data_files[n], data.keys())
+        if data_empty[n]:
+            data_writers[n].writeheader()
+            data_empty[n] = False
 
     # write datas to file
-    data_loggers[n].info(','.join(str(v) for v in data.values()))
+    data_writers[n].writerow(data)
+    data_files[n].flush()
 
 def gen_task_sensors():
     camera = Camera(img_file, min_interval=60)
@@ -98,74 +104,67 @@ def gen_task_file_test():
             log_data(data, 2)
 
 def main():
-    global last_run_time, data_loggers, data_empty
+    global last_run_time, data_writers, data_empty
 
     # setup general logging
-    logzero.logfile(log_file)
+    logzero.logfile(log_path)
+    logzero.loglevel(logging.INFO)
 
     logger.info("Initializing")
 
-    # logger for datas
-    formatter=logging.Formatter('%(message)s', datefmt='%s')
-    for i in range(num_datas):
-        data_loggers[i] = logzero.setup_logger(name=str(i), logfile=data_files[i], disableStderrLogger=True, formatter=formatter)
-        data_empty[i] = os.stat(data_files[i]).st_size == 0
+    with contextlib.ExitStack() as stack:
+        # CSV writers
+        for i,path in enumerate(data_paths):
+            data_files[i] = stack.enter_context(open(path, 'a'))
+            data_empty[i] = os.stat(data_paths[i]).st_size == 0
 
-    # figure out how much runtime there is left using one of the data files
-    if data_empty[0]: # fresh start, record start time
-        data_loggers[0].info(time.time())
+        # elapsed time keeper
+        elapsed_file = stack.enter_context(os.fdopen(os.open(elapsed_path, os.O_RDWR | os.O_CREAT | os.O_SYNC, 0o644), 'r+'))
 
-    else: # not fresh start, read the previous runtime
-        with open(data_files[0], 'rb') as file:
-            # start time
-            start = file.readline().decode()
-
-            # seek backwards until EOL
+        # figure out how much runtime there is left
+        if os.stat(elapsed_path).st_size > 0:
             try:
-                file.seek(-2, os.SEEK_END)
-                while file.read(1) != b"\n":
-                    file.seek(-2, os.SEEK_CUR)
+                last_run_time = float(elapsed_file.read())
+            except ValueError:
+                logger.warning("Cannot obtain elasped time")
 
-                end = file.readline().decode().split(',')[0]
+        if last_run_time > 0:
+            logger.info("Already run for: %.1fs", last_run_time)
 
-                # save the run time of last execution if there was one
-                last_run_time = float(end) - float(start)
+        # create tasks
+        tasks = [ # (task, runs per iteration)
+            (gen_task_sensors(), 1),
+            (gen_task_memory_test(), 1),
+            (gen_task_file_test(), 50)
+        ]
 
-            except (OSError, ValueError):
-                logger.warning("Cannot obtain last run time")
-                pass
+        logger.info("Running")
 
-    if last_run_time > 0:
-        logger.info("Already run for: %fs", last_run_time)
+        while True:
+            now = time.time()
 
-    # create tasks
-    tasks = [ # (task, runs per iteration)
-        (gen_task_sensors(), 1),
-        (gen_task_memory_test(), 1),
-        (gen_task_file_test(), 50)
-    ]
+            # check runtime
+            if now - start_time + last_run_time > MAX_RUN_TIME: # TODO account for loop execution time
+                break
 
-    logger.info("Running")
+            # execute the tasks
+            for task in tasks:
+                try:
+                    for i in range(task[1]):
+                        next(task[0])
+                except StopIteration:
+                    logger.warning("%s ended early", task.__name__)
+                    tasks.remove(task)
 
-    while True:
-        now = time.time()
+            # save elapsed time in file so we know how much time we've left in case of SEU
+            elapsed_file.seek(0)
+            elapsed_file.write('{:=010.1f}'.format(now - start_time + last_run_time))
+            elapsed_file.truncate()
+            elapsed_file.flush()
 
-        # check runtime
-        if now - start_time + last_run_time > MAX_RUN_TIME: # TODO account for loop execution time
-            break
+            logger.debug("Time taken in loop: %fs", time.time() - now)
 
-        # execute the tasks
-        for task in tasks:
-            try:
-                for i in range(task[1]):
-                    next(task[0])
-            except StopIteration:
-                logger.warning("%s ended early", task.__name__)
-                tasks.remove(task)
-
-        logger.debug("Time taken in loop: %fs", time.time() - now)
-
-    logger.info("Ending program")
+        logger.info("Ending program")
 
 if __name__ == "__main__":
     main()
