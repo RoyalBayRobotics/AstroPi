@@ -1,104 +1,41 @@
-import ctypes as c
-import ctypes.util
-
-import os
-import mmap
-import shutil
-from zlib import adler32
-
+import re
 import numpy as np
 from logzero import logger
+from zlib import adler32
 
-# constants
-MAX_SIZE = 2147483647 # will allocate 2 GB at max on file system. it is also the max int32
-RESERVE_SIZE = 1024*1024*100 # reserve at least 100 MB after allocation
-MEM_SIZE = 1024*1024*500 # Will allocate 500 MB of ram
-FILE_NAME = "experiment_use_only_do_not_upload"
-
-# prepare fallocate function
-libc = c.CDLL(ctypes.util.find_library('c'), use_errno=True)
-libc.fallocate.restype = ctypes.c_int
-libc.fallocate.argtypes = [c.c_int, c.c_int, c.c_int32, c.c_int32]
-
-def fallocate(fd, mode, offset, length):
-    res = libc.fallocate(fd, mode, offset, length)
-    if res != 0:
-        raise IOError(c.get_errno(), 'Failed to fallocate file')
+RESERVE_MEMORY_SIZE = 50 * 1024 * 1024 # reserve 50MB to system
+FALLBACK_MEMORY_SIZE = 500 * 1024 * 1024
 
 # uses generator to implement multitask
-class FileTest:
-    def __init__(self, pwd, read_size=1024*1024):
-        self.path = pwd + '/' + FILE_NAME
-        self.fd = -1
-        self.hash = 1
-        self.read_size = read_size
+class MemoryTest:
+    def __init__(self, batch_size=-1):
 
-        # find out available storage space
-        free = shutil.disk_usage(pwd).free - RESERVE_SIZE
-        if free <= 0:
-            logger.error("Not enough space for storage experiment")
-            self.size = 0
-        else:
-            self.size = min(free, MAX_SIZE)
-
-    def __enter__(self):
-        if self.size > 0:
-            logger.info("Allocating %d bytes on filesystem", self.size)
-            try:
-                self.fd = os.open(self.path, os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_DIRECT, 0o644)
-                fallocate(self.fd, 0, 0, self.size)
-                logger.info("File allocated")
-            except (IOError, OSError) as e:
-                logger.error("Failed to allocate file: %s", str(e))
-        return self
-
-    def __exit__(self, *args):
-        logger.info("Deleting experiment file")
-        if self.fd != -1: os.close(self.fd)
-        self.fd = -1
+        # Find out available memory size to use
+        regex = re.compile('^MemAvailable: +([0-9]+) kB$')
         try:
-            os.remove(self.path)
+            with open('/proc/meminfo', 'r') as file:
+                for line in file:
+                    match = regex.match(line)
+                    if match is not None:
+                        self.size = int(match.group(1)) * 1024 - RESERVE_MEMORY_SIZE
+                        break
         except OSError:
             pass
 
-    def update_hash(self):
-        if self.fd == -1: return
+        if self.size is None:
+            logger.warning("Cannot find available memory")
+            self.size = FALLBACK_MEMORY_SIZE
+        elif self.size <= 0:
+            logger.error("Not enough memory for the experiment")
+            return
 
-        self.hash = 1
-        pos = 0
-        while pos < self.size:
-            data = self._direct_read(pos, min(self.read_size, self.size-pos))
-            if not data: break
-            self.hash = adler32(data, self.hash)
-            pos += len(data)
-            yield pos / self.size
+        self.batch_size = batch_size if batch_size != -1 else self.size
 
-    def test(self):
-        if self.fd == -1: return
-
-        hash = self.hash
-        for prog in self.update_hash():
-            # wait for it to calculating file checksum
-            yield prog
-
-        yield {
-            'file_changed': hash != self.hash,
-            'file_size': self.size,
-        }
-
-    def _direct_read(self, pos, size):
-        with mmap.mmap(self.fd, size, offset=pos, access=mmap.ACCESS_READ) as data:
-            return data.read(size)
-
-class MemoryTest:
-    def __init__(self, batch_size=MEM_SIZE):
-        self.batch_size = batch_size
-
-        logger.info("Allocating %d bytes of memory", MEM_SIZE)
+        logger.info("Allocating %d bytes of memory", self.size)
         try:
             # Using both zeros and ones to see if different bits gives different results
-            self.array = np.full(MEM_SIZE, 0xFF, dtype=np.uint8)
-            self.array[:MEM_SIZE//2] = 0x00
+            self.array = np.full(self.size, 0xFF, dtype=np.uint8)
+            self.array[:self.size//2] = 0x00
             logger.info("Memory allocated")
         except (MemoryError, ValueError) as e:
             logger.error("Failed to allocate memory: %s", str(e))

@@ -11,7 +11,7 @@ import logzero
 from logzero import logger
 
 from sensors import Sensors, Camera
-from bittest import MemoryTest, FileTest
+from bittest import MemoryTest
 
 # time keeping variables
 MAX_RUN_TIME = 60 * 60 * 3 # seconds TODO remember to change it to 3 hours
@@ -21,7 +21,7 @@ last_run_time = 0 # used when the first run got interrupted
 # file paths
 path = os.path.dirname(os.path.realpath(__file__))
 img_file = path + '/image{}.jpg' # gets formatted when saving
-data_paths = [path + '/' + name for name in ('data01.csv', 'data02.csv', 'data03.csv')]
+data_paths = [path + '/' + name for name in ('data01.csv', 'data02.csv')]
 log_path = path + '/data{:02d}.log'.format(len(data_paths)+1)
 elapsed_path = path + '/elasped_time'
 
@@ -89,34 +89,12 @@ def gen_task_memory_test():
 
         yield
 
-def gen_task_file_test():
-    with FileTest(path) as filetest:
-
-        # calculate initial checksum
-        for rst in filetest.update_hash():
-            logger.debug("File checksum progress: %d%%", rst * 100)
-            yield
-
-        while True:
-            rst = None
-            for rst in filetest.test():
-                if type(rst) is dict: break
-                logger.debug("File test progress: %d%%", rst * 100)
-                yield
-
-            if rst != None:
-                data = {'time': time.time()}
-                data.update(rst)
-                log_data(data, 2)
-
-            yield
-
 def main():
     global last_run_time, data_writers, data_empty
 
     # setup general logging
     logzero.logfile(log_path)
-    logzero.loglevel(logging.INFO)
+    #logzero.loglevel(logging.INFO)
 
     logger.info("Initializing")
 
@@ -143,7 +121,6 @@ def main():
         tasks = [ # (task, runs per iteration)
             (gen_task_sensors(), 1),
             (gen_task_memory_test(), 1),
-            (gen_task_file_test(), 50)
         ]
 
         logger.info("Running")
