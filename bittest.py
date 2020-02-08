@@ -44,8 +44,15 @@ class MemoryTest:
     def update_hash(self):
         if self.array is None: return
         self.hash_zero = self.hash_one = 1
-        for i in range(0, self.array.size, self.batch_size):
-            self.hash_zero = adler32(self.array.data[i:i+self.batch_size], self.hash_zero)
+
+        # update checksum for the zero part of memory
+        for i in range(0, self.array.size//2, self.batch_size):
+            end = min(i+self.batch_size, self.array.size//2) # to prevent reading into one's region
+            self.hash_zero = adler32(self.array.data[i:end], self.hash_zero)
+            yield (i+self.batch_size) / self.array.size
+
+        # update checksum for the one part of memory
+        for i in range(self.array.size//2, self.array.size, self.batch_size):
             self.hash_one = adler32(self.array.data[i:i+self.batch_size], self.hash_one)
             yield (i+self.batch_size) / self.array.size
 
