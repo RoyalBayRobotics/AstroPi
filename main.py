@@ -151,5 +151,11 @@ def main():
 
         logger.info("Ending program")
 
+        # finished normally, remove elapsed time file
+        try:
+            os.remove(elapsed_path)
+        except OSError as e:
+            logger.warning('Cannot remove %s: %s', elapsed_path, str(e))
+
 if __name__ == "__main__":
     main()
