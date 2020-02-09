@@ -39,7 +39,7 @@ from sensors import Sensors, Camera
 from bittest import MemoryTest
 
 # time keeping variables
-MAX_RUN_TIME = 60 * 60 * 3 - 3 # in seconds, has a margin of 3 seconds before MCP kills us
+MAX_RUN_TIME = 60 * 60 * 3 - 5 # in seconds, has a margin of 5 seconds before MCP kills us
 start_time = time.time() # records when the program started
 last_run_time = 0 # used when the first run got interrupted
 
