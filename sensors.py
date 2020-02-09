@@ -3,7 +3,7 @@
 # This file contains classes that sets up sensors, camera, and ephem
 # And collect their datas
 #
-# Images are saved directly to disk; Other datas are returned to caller
+# Images are saved directly; Other datas are returned to caller
 # as dict's
 
 import os
@@ -40,8 +40,8 @@ class Sensors:
         gyro = self.sense.get_gyroscope_raw()
         accel = self.sense.get_accelerometer_raw()
 
-        data['mag_x'] = mag['x']; data['mag_y'] = mag['y']; data['mag_z'] = mag['z']
-        data['gyro_x'] = gyro['x']; data['gyro_y'] = gyro['y']; data['gyro_z'] = gyro['z']
+        data['mag_x']   =   mag['x']; data['mag_y']   =   mag['y']; data['mag_z']   =   mag['z']
+        data['gyro_x']  =  gyro['x']; data['gyro_y']  =  gyro['y']; data['gyro_z']  =  gyro['z']
         data['accel_x'] = accel['x']; data['accel_y'] = accel['y']; data['accel_z'] = accel['z']
 
         return data

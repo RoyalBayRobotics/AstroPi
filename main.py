@@ -61,12 +61,14 @@ elapsed_file = None
 def log_data(data, n):
     global data_empty, data_writers
 
-    # write CSV keys to file if it's empty
+    # create CSV writer
     if not data_writers[n]:
         data_writers[n] = csv.DictWriter(data_files[n], data.keys())
-        if data_empty[n]:
-            data_writers[n].writeheader()
-            data_empty[n] = False
+
+    # write CSV keys to file if it's empty
+    if data_empty[n]:
+        data_writers[n].writeheader()
+        data_empty[n] = False
 
     # write datas to file
     data_writers[n].writerow(data)
@@ -200,13 +202,13 @@ def main():
 
             logger.debug("Time taken in loop: %fs", time.time() - now)
 
-        logger.info("Ending program")
+    logger.info("Ending program")
 
-        # finished normally, remove elapsed time file
-        try:
-            os.remove(elapsed_path)
-        except OSError as e:
-            logger.warning('Cannot remove %s: %s', elapsed_path, str(e))
+    # finished normally, remove elapsed time file
+    try:
+        os.remove(elapsed_path)
+    except OSError as e:
+        logger.warning('Cannot remove %s: %s', elapsed_path, str(e))
 
 if __name__ == "__main__":
     main()
